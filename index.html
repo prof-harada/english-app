@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>爆笑！英単語並び替えマスター</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            -webkit-tap-highlight-color: transparent;
+        }
+        .game-title {
+            font-family: 'Mochiy Pop One', sans-serif;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+        .word-card {
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            outline: none;
+            text-transform: lowercase; 
+            user-select: none;
+        }
+        .word-card:hover, .word-card:focus {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 6px 12px rgba(14, 165, 233, 0.3);
+            border-color: #38bdf8;
+        }
+        .drop-zone {
+            border: 3px dashed #7dd3fc;
+            min-height: 80px;
+            transition: background-color 0.2s;
+        }
+        .feedback-correct { animation: tada 1s; }
+        .feedback-incorrect { animation: shake 0.5s; }
+        
+        .fade-in-up { animation: fadeInUp 0.4s ease-out; }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes tada {
+            from { transform: scale3d(1, 1, 1); }
+            10%, 20% { transform: scale3d(0.9, 0.9, 0.9) rotate3d(0, 0, 1, -3deg); }
+            30%, 50%, 70%, 90% { transform: scale3d(1.1, 1.1, 1.1) rotate3d(0, 0, 1, 3deg); }
+            40%, 60%, 80% { transform: scale3d(1.1, 1.1, 1.1) rotate3d(0, 0, 1, -3deg); }
+            to { transform: scale3d(1, 1, 1); }
+        }
+        @keyframes shake {
+            from, to { transform: translate3d(0, 0, 0); }
+            10%, 30%, 50%, 70%, 90% { transform: translate3d(-10px, 0, 0); }
+            20%, 40%, 60%, 80% { transform: translate3d(10px, 0, 0); }
+        }
+        .toggle-checkbox:checked { right: 0; border-color: #38bdf8; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #38bdf8; }
+    </style>
+</head>
+<body class="bg-sky-50 flex items-center justify-center min-h-screen p-4">
+
+    <div id="game-container" class="w-full max-w-2xl mx-auto bg-white rounded-2xl shadow-xl p-4 md:p-8 relative">
+        <h1 class="game-title text-2xl md:text-4xl font-bold text-center text-sky-600 mb-2">爆笑！英単語並び替えマスター</h1>
+        <p class="text-center text-gray-500 mb-4 text-sm md:text-base">単語をタップして、面白い英文を完成させよう！<br>間違えた単語はタップで元に戻せるよ。</p>
+
+        <!-- 設定パネル -->
+        <div class="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
+            <div class="mb-4">
+                <label for="category-select" class="block text-sm font-bold text-gray-700 mb-2">📚 学習メニュー</label>
+                <select id="category-select" class="w-full p-2 border-2 border-sky-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white font-semibold text-gray-800 cursor-pointer shadow-sm relative z-10">
+                    <option value="all">すべての問題からランダム</option>
+                    <option value="1">1 基本の文（SV / SVC / SVO）</option>
+                    <option value="2">2 目的語・補語が２つ（SVOO / SVOC）</option>
+                    <option value="3">3 受動態（〜される）</option>
+                    <option value="4">4 現在完了形（have + 過去分詞）</option>
+                    <option value="5">5 不定詞・動名詞・分詞の修飾</option>
+                    <option value="6">6 仮定法（もし〜なら）</option>
+                    <option value="7">7 特殊な語順（倒置・強調構文など）</option>
+                </select>
+            </div>
+            
+            <div class="flex flex-col md:flex-row justify-between items-center gap-3 border-t border-gray-200 pt-4">
+                <div class="flex flex-wrap items-center gap-4">
+                    <div class="flex items-center">
+                        <label class="text-sm text-gray-700 mr-2 font-bold" for="hint-toggle">文型ヒント</label>
+                        <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                            <input type="checkbox" name="toggle" id="hint-toggle" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer z-10 transition-transform duration-200 ease-in-out" checked/>
+                            <label for="hint-toggle" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-300 cursor-pointer"></label>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <label class="text-sm text-pink-600 mr-2 font-bold" for="weak-toggle">🔥弱点優先</label>
+                        <div class="relative inline-block w-10 align-middle select-none transition duration-200 ease-in">
+                            <input type="checkbox" name="toggle" id="weak-toggle" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer z-10 transition-transform duration-200 ease-in-out"/>
+                            <label for="weak-toggle" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-300 cursor-pointer"></label>
+                        </div>
+                    </div>
+                </div>
+                <button id="reset-weakness-btn" class="text-xs bg-gray-200 text-gray-600 px-3 py-1 rounded hover:bg-gray-300 transition">弱点データをリセット</button>
+            </div>
+        </div>
+
+        <div id="sentence-info" class="text-center mb-6 p-4 bg-sky-50 rounded-lg shadow-inner">
+             <div class="flex items-center justify-center gap-2 mb-2">
+                <p class="font-bold text-sky-800 text-lg">文型： <span id="pattern-display" class="bg-yellow-200 px-2 py-1 rounded"></span></p>
+                <button id="explain-grammar-btn" class="text-sm bg-sky-600 text-white px-3 py-1 rounded-full hover:bg-sky-700 transition shadow">✨ くわしく</button>
+            </div>
+            <p class="text-md text-gray-800 font-medium">日本語訳： <span id="translation-display"></span></p>
+        </div>
+
+        <div class="text-sm text-sky-600 font-bold mb-1 ml-2">回答エリア <span class="text-xs text-gray-400 font-normal">(タップで戻す)</span></div>
+        <div id="answer-zone" class="drop-zone flex flex-wrap gap-2 md:gap-3 items-center justify-center p-4 rounded-lg bg-white border-sky-300 mb-4 shadow-inner">
+        </div>
+
+        <div class="text-sm text-gray-600 font-bold mb-1 ml-2">単語カード <span class="text-xs text-gray-400 font-normal">(タップで選択)</span></div>
+        <div id="scrambled-words" class="flex flex-wrap gap-2 md:gap-3 justify-center mb-6 p-4 bg-gray-100 rounded-lg min-h-[80px] border border-gray-200">
+        </div>
+
+        <div id="feedback" class="text-center text-xl md:text-2xl font-bold mb-6 min-h-[36px]"></div>
+
+        <div class="flex flex-col sm:flex-row gap-3 justify-center">
+            <button id="check-btn" class="w-full sm:w-auto bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 px-8 rounded-full shadow-md transition transform hover:-translate-y-1">
+                答え合わせ
+            </button>
+            <button id="next-btn" class="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-8 rounded-full shadow-md hidden transition transform hover:-translate-y-1">
+                次の問題へ
+            </button>
+            <button id="create-new-problem-btn" class="w-full sm:w-auto bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-8 rounded-full shadow-md hidden transition transform hover:-translate-y-1">
+                ✨ AIで新問題を作る
+            </button>
+            <button id="reset-btn" class="w-full sm:w-auto bg-slate-400 hover:bg-slate-500 text-white font-bold py-3 px-8 rounded-full shadow-md transition transform hover:-translate-y-1">
+                やり直す
+            </button>
+        </div>
+    </div>
+
+    <!-- AI解説モーダル -->
+    <div id="grammar-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 opacity-0 pointer-events-none z-50 transition-opacity duration-300">
+        <div id="grammar-modal-content" class="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-lg transform scale-95 transition-transform duration-300 flex flex-col max-h-[90vh]">
+            <h2 class="text-2xl font-bold mb-4 text-sky-700 flex items-center gap-2">
+                <span class="text-3xl">🤖</span> Gemini先生の文法解説
+            </h2>
+            <div id="grammar-modal-body" class="text-left text-gray-700 space-y-3 whitespace-pre-wrap flex-grow overflow-y-auto bg-gray-50 p-4 rounded border border-gray-200">
+            </div>
+            <button id="close-grammar-modal-btn" class="mt-6 w-full bg-slate-500 hover:bg-slate-600 text-white font-bold py-3 px-4 rounded-full transition flex-shrink-0">
+                とじる
+            </button>
+        </div>
+    </div>
+    
+    <!-- ローディングスピナー -->
+    <div id="loading-spinner" class="fixed inset-0 bg-white bg-opacity-90 flex flex-col items-center justify-center z-50 hidden">
+      <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-sky-500 mb-4"></div>
+      <p class="text-sky-700 font-bold text-lg animate-pulse" id="loading-text">AIと考え中...</p>
+      <p id="error-details" class="text-red-500 mt-4 text-sm max-w-md text-center hidden font-bold bg-red-50 p-2 rounded"></p>
+      <button id="close-loading-btn" class="mt-6 bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded-full text-sm hidden transition">キャンセルして戻る</button>
+    </div>
+
+    <script>
+        // ==========================================
+        // 【重要】完全リセット作戦で作成した新しいGASのURLを貼り付けてください。
+        const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby3ZVkco01ky24HPprsWQ7IVYo3M0htb1Io1wg_pvG4RUKGrktgRX5wR9Fh5QjUQY7D/exec";
+        // ==========================================
+
+        const sentences = [
+            { id: 1, category: "1", sentence: "A talking banana runs in the park.", pattern: "S + V (第1文型)", jp: "話すバナナが公園を走る。" },
+            { id: 2, category: "1", sentence: "My hamster is a famous DJ.", pattern: "S + V + C (第2文型)", jp: "私のハムスターは有名なDJです。" },
+            { id: 3, category: "1", sentence: "I found a ninja under my bed.", pattern: "S + V + O (第3文型)", jp: "私はベッドの下で忍者を見つけました。" },
+            { id: 11, category: "1", sentence: "The zombie looks very happy today.", pattern: "S + V + C (第2文型)", jp: "そのゾンビは今日とても幸せそうだ。" },
+            { id: 12, category: "1", sentence: "I love eating spicy chocolate.", pattern: "S + V + O (第3文型)", jp: "私は辛いチョコレートを食べるのが大好きだ。" },
+            { id: 4, category: "2", sentence: "My cat teaches my dog English.", pattern: "S + V + O + O (第4文型)", jp: "私の猫は私の犬に英語を教えます。" },
+            { id: 5, category: "2", sentence: "The robot made my homework very strange.", pattern: "S + V + O + C (第5文型)", jp: "そのロボットは私の宿題をとても奇妙にしました。" },
+            { id: 13, category: "2", sentence: "My grandma gave me a flying carpet.", pattern: "S + V + O + O (第4文型)", jp: "おばあちゃんは私に空飛ぶ絨毯をくれた。" },
+            { id: 14, category: "2", sentence: "We call the giant frog boss.", pattern: "S + V + O + C (第5文型)", jp: "私たちはその巨大なカエルをボスと呼ぶ。" },
+            { id: 7, category: "3", sentence: "This castle was built by a superhero.", pattern: "受動態", jp: "このお城はスーパーヒーローによって建てられました。" },
+            { id: 15, category: "3", sentence: "The pizza was eaten by a ghost.", pattern: "受動態", jp: "そのピザはお化けに食べられました。" },
+            { id: 16, category: "3", sentence: "English is spoken by alien teachers.", pattern: "受動態", jp: "英語は宇宙人の先生たちによって話されます。" },
+            { id: 6, category: "4", sentence: "The aliens have already eaten all the pizza.", pattern: "現在完了形", jp: "宇宙人たちはすでに全てのピザを食べてしまいました。" },
+            { id: 17, category: "4", sentence: "I have never seen a dancing potato.", pattern: "現在完了形", jp: "私は今まで踊るジャガイモを見たことがない。" },
+            { id: 18, category: "4", sentence: "He has been a ninja for ten years.", pattern: "現在完了形", jp: "彼は10年間ずっと忍者です。" },
+            { id: 8, category: "5", sentence: "I want to buy a ticket to the moon.", pattern: "to不定詞 (名詞的用法)", jp: "私は月へのチケットを買いたいです。" },
+            { id: 19, category: "5", sentence: "I need something cold to drink.", pattern: "to不定詞 (形容詞的用法)", jp: "私は何か冷たい飲み物が欲しい。" },
+            { id: 20, category: "5", sentence: "The boy running in the park is my brother.", pattern: "現在分詞の修飾", jp: "公園を走っている少年は私の弟だ。" },
+            { id: 9, category: "6", sentence: "If I were a cat, I would sleep all day.", pattern: "仮定法過去", jp: "もし私が猫なら、一日中寝ているだろうに。" },
+            { id: 21, category: "6", sentence: "If I had wings, I could fly to school.", pattern: "仮定法過去", jp: "もし私に羽があれば、学校まで飛んでいけるのに。" },
+            { id: 22, category: "6", sentence: "I wish I could speak with dogs.", pattern: "仮定法（I wish）", jp: "犬と話すことができればいいのになぁ。" },
+            { id: 10, category: "7", sentence: "Never have I seen such a dancing takoyaki.", pattern: "倒置（否定語）", jp: "あんなに踊るたこ焼きは今まで見たことがない。" },
+            { id: 23, category: "7", sentence: "Little did I know that she was a spy.", pattern: "倒置（否定語）", jp: "彼女がスパイだったとは、私は全く知らなかった。" },
+            { id: 24, category: "7", sentence: "It was yesterday that the UFO crashed.", pattern: "強調構文", jp: "UFOが墜落したのは昨日だった。" }
+        ];
+
+        let currentProblem = {};
+        let usedIds = new Set();
+        let mistakesCount = 0;
+        let weakPatterns = {};
+        
+        try {
+            const savedData = localStorage.getItem('englishWeakPatterns');
+            if (savedData) {
+                weakPatterns = JSON.parse(savedData);
+            }
+        } catch(e) {
+            console.error("弱点データの読み込みに失敗しました", e);
+        }
+
+        function saveWeakness(pattern) {
+            weakPatterns[pattern] = (weakPatterns[pattern] || 0) + 1;
+            try {
+                localStorage.setItem('englishWeakPatterns', JSON.stringify(weakPatterns));
+            } catch(e) {}
+        }
+
+        const scrambledWordsContainer = document.getElementById('scrambled-words');
+        const answerZone = document.getElementById('answer-zone');
+        const feedbackEl = document.getElementById('feedback');
+        const checkBtn = document.getElementById('check-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const patternDisplay = document.getElementById('pattern-display');
+        const translationDisplay = document.getElementById('translation-display');
+        const hintToggle = document.getElementById('hint-toggle');
+        const weakToggle = document.getElementById('weak-toggle');
+        const categorySelect = document.getElementById('category-select');
+        const resetWeaknessBtn = document.getElementById('reset-weakness-btn');
+        const explainGrammarBtn = document.getElementById('explain-grammar-btn');
+        const createNewProblemBtn = document.getElementById('create-new-problem-btn');
+        const grammarModal = document.getElementById('grammar-modal');
+        const grammarModalBody = document.getElementById('grammar-modal-body');
+        const closeGrammarModalBtn = document.getElementById('close-grammar-modal-btn');
+        const grammarModalContent = document.getElementById('grammar-modal-content');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const loadingText = document.getElementById('loading-text');
+        const errorDetails = document.getElementById('error-details');
+        const closeLoadingBtn = document.getElementById('close-loading-btn');
+
+        function speakSentence(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'en-US';
+                utterance.rate = 0.9;
+                utterance.pitch = 1.1;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        function shuffleArray(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        function cleanWord(word) {
+            return word.replace(/[.,!?]/g, '').toLowerCase();
+        }
+
+        function createWordCard(word, originalId) {
+            const card = document.createElement('button');
+            card.textContent = word; 
+            card.className = 'word-card bg-white p-3 px-5 rounded-lg text-lg md:text-xl font-bold text-sky-800 border-2 border-sky-100';
+            card.dataset.id = originalId;
+            
+            card.addEventListener('click', () => {
+                if (card.parentElement.id === 'scrambled-words') {
+                    answerZone.appendChild(card);
+                } else {
+                    scrambledWordsContainer.appendChild(card);
+                }
+            });
+            return card;
+        }
+
+        function getNextProblem() {
+            const selectedCategory = categorySelect.value;
+            
+            let categorySentences = sentences;
+            if (selectedCategory !== "all") {
+                categorySentences = sentences.filter(s => s.category === selectedCategory);
+            }
+
+            let availableSentences = categorySentences.filter(s => !usedIds.has(s.id));
+            
+            if (availableSentences.length === 0) {
+                categorySentences.forEach(s => usedIds.delete(s.id));
+                availableSentences = categorySentences;
+            }
+
+            if (weakToggle.checked && Object.keys(weakPatterns).length > 0) {
+                availableSentences.sort((a, b) => (weakPatterns[b.pattern] || 0) - (weakPatterns[a.pattern] || 0));
+                const topCandidates = availableSentences.slice(0, Math.max(1, Math.floor(availableSentences.length / 2)));
+                return topCandidates[Math.floor(Math.random() * topCandidates.length)];
+            }
+
+            return availableSentences[Math.floor(Math.random() * availableSentences.length)];
+        }
+
+        function displayProblem(problemData) {
+            currentProblem = problemData;
+            mistakesCount = 0;
+            
+            patternDisplay.textContent = hintToggle.checked ? currentProblem.pattern : '？？？';
+            translationDisplay.textContent = currentProblem.jp;
+
+            const words = currentProblem.sentence.split(' ').map(w => cleanWord(w));
+            
+            let shuffledWords = shuffleArray(words);
+            if(words.length > 1 && shuffledWords.join(' ') === words.join(' ')) {
+                shuffledWords = shuffleArray(words); 
+            }
+
+            answerZone.innerHTML = '';
+            scrambledWordsContainer.innerHTML = '';
+            
+            shuffledWords.forEach((word, index) => {
+                if(word.trim() !== "") {
+                    const card = createWordCard(word, index);
+                    card.classList.add('fade-in-up');
+                    scrambledWordsContainer.appendChild(card);
+                }
+            });
+        }
+
+        function setupNewRound() {
+            feedbackEl.innerHTML = '';
+            feedbackEl.className = 'text-center text-xl md:text-2xl font-bold mb-6 min-h-[36px]';
+            checkBtn.classList.remove('hidden');
+            nextBtn.classList.add('hidden');
+            createNewProblemBtn.classList.add('hidden');
+
+            const newProblem = getNextProblem();
+            if(!newProblem.isAiGenerated) usedIds.add(newProblem.id);
+            displayProblem(newProblem);
+        }
+
+        function resetPuzzle() {
+            const cards = Array.from(answerZone.children);
+            cards.forEach(card => scrambledWordsContainer.appendChild(card));
+            feedbackEl.textContent = '';
+            feedbackEl.className = 'text-center text-xl md:text-2xl font-bold mb-6 min-h-[36px]';
+            checkBtn.classList.remove('hidden');
+            nextBtn.classList.add('hidden');
+            createNewProblemBtn.classList.add('hidden');
+            mistakesCount = 0;
+        }
+
+        function checkAnswer() {
+            if (scrambledWordsContainer.children.length > 0) {
+                feedbackEl.textContent = 'すべての単語を使ってね！👆';
+                feedbackEl.className = 'text-center text-xl font-bold mb-6 min-h-[36px] text-orange-500 feedback-incorrect';
+                setTimeout(() => feedbackEl.classList.remove('feedback-incorrect'), 500);
+                return;
+            }
+
+            const userWords = Array.from(answerZone.children).map(child => child.textContent.trim());
+            const userAnswer = userWords.join(' ');
+            
+            const correctWords = currentProblem.sentence.split(' ').map(w => cleanWord(w));
+            const cleanCorrectWords = correctWords.filter(w => w !== "");
+            const correctAnswerCleaned = cleanCorrectWords.join(' ');
+
+            if (userAnswer === correctAnswerCleaned) {
+                feedbackEl.textContent = '大正解！🎉 Awesome!';
+                feedbackEl.className = 'text-center text-2xl md:text-3xl font-bold mb-6 min-h-[36px] text-green-500 feedback-correct';
+                checkBtn.classList.add('hidden');
+                nextBtn.classList.remove('hidden');
+                createNewProblemBtn.classList.remove('hidden');
+                
+                speakSentence(currentProblem.sentence);
+            } else {
+                mistakesCount++;
+                if(mistakesCount === 1) saveWeakness(currentProblem.pattern);
+                feedbackEl.textContent = 'おしい！もう一度考えてみよう🤔';
+                feedbackEl.className = 'text-center text-xl md:text-2xl font-bold mb-6 min-h-[36px] text-red-500 feedback-incorrect';
+                setTimeout(() => feedbackEl.classList.remove('feedback-incorrect'), 500);
+            }
+        }
+
+        async function callGasBackend(payload) {
+            if (GAS_WEB_APP_URL === "YOUR_GAS_WEB_APP_URL_HERE") {
+                throw new Error("GASのURLが設定されていません。コード内の GAS_WEB_APP_URL を書き換えてください。");
+            }
+
+            let response;
+            try {
+                response = await fetch(GAS_WEB_APP_URL, {
+                    method: 'POST',
+                    redirect: "follow", 
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify(payload)
+                });
+            } catch(e) {
+                throw new Error(`通信エラーです。インターネット接続を確認してください。（詳細: ${e.message}）`);
+            }
+
+            const text = await response.text();
+            
+            let result;
+            try {
+                result = JSON.parse(text);
+            } catch(e) {
+                console.error("GASからの生のレスポンス:", text);
+                throw new Error(`GASのデプロイ設定エラーです。「アクセスできるユーザー」を「全員」に設定して再公開してください。`);
+            }
+            
+            if(!result.success) throw new Error(result.error); 
+            return result.data;
+        }
+
+        function toggleLoading(show, text = '考え中...') {
+            loadingText.textContent = text;
+            errorDetails.classList.add('hidden');
+            errorDetails.textContent = '';
+            closeLoadingBtn.classList.add('hidden');
+            
+            if (show) loadingSpinner.classList.remove('hidden');
+            else loadingSpinner.classList.add('hidden');
+        }
+
+        function showError(message) {
+            loadingText.textContent = 'エラーが発生しました';
+            errorDetails.textContent = message;
+            errorDetails.classList.remove('hidden');
+            closeLoadingBtn.classList.remove('hidden');
+        }
+
+        closeLoadingBtn.addEventListener('click', () => {
+            toggleLoading(false);
+            if(grammarModal.classList.contains('opacity-0') === false) {
+                 grammarModal.classList.add('opacity-0', 'pointer-events-none');
+                 grammarModalContent.classList.add('scale-95');
+            }
+        });
+
+        async function explainGrammar() {
+            if (!currentProblem.pattern) return;
+
+            toggleLoading(true, 'Gemini先生が解説を作っています...');
+            grammarModal.classList.remove('opacity-0', 'pointer-events-none');
+            grammarModalContent.classList.remove('scale-95');
+            grammarModalBody.innerHTML = '<div class="text-center py-10 text-gray-500 animate-pulse">解説を生成中...<br>（数秒かかることがあります）</div>';
+
+            const prompt = `英語の文法「${currentProblem.pattern}」について、中学生・高校生に分かるように、フレンドリーな口調で解説してください。
+            重要なポイントは箇条書きにし、クスッと笑えるような面白い例文を一つ含めてください。`;
+
+            try {
+                const data = await callGasBackend({ prompt: prompt });
+                
+                if (data.candidates && data.candidates.length > 0) {
+                    toggleLoading(false);
+                    let text = data.candidates[0].content.parts[0].text;
+                    text = text.replace(/\*\*(.*?)\*\*/g, '<span class="font-bold text-sky-700">$1</span>');
+                    grammarModalBody.innerHTML = text;
+                } else if (data.error) {
+                    throw new Error(`【APIエラー】: ${data.error.message}`);
+                } else {
+                     throw new Error("Geminiから回答データが届きませんでした。安全フィルターに引っかかった可能性があります。");
+                }
+            } catch (error) {
+                console.error(error);
+                showError(error.message);
+                grammarModalBody.innerHTML = `<div class="text-red-500 font-bold p-4 bg-red-50 rounded">エラーが発生しました。<br><br>${error.message}</div>`;
+            }
+        }
+
+        async function createNewProblem() {
+            toggleLoading(true, 'Geminiが新しい問題を作っています...');
+            
+            const prompt = `「${currentProblem.sentence}」と同じ文型「${currentProblem.pattern}」を使って、中学生や高校生がクスッと笑えるような、新しくて面白い英文を一つ作ってください。
+            
+            【重要】回答は必ず以下のJSON形式のみで出力してください。他の説明や余計な記号は一切書かないでください。
+            {
+              "sentence": "新しい面白い英文（記号は含めない）",
+              "jp": "新しい英文の自然な日本語訳"
+            }`;
+
+            try {
+                const data = await callGasBackend({ prompt: prompt });
+                
+                if (data.candidates && data.candidates.length > 0) {
+                    let jsonText = data.candidates[0].content.parts[0].text;
+                    
+                    jsonText = jsonText.replace(/```json/gi, '').replace(/```/g, '').trim();
+                    
+                    let newProblem;
+                    try {
+                        newProblem = JSON.parse(jsonText);
+                    } catch (parseError) {
+                        throw new Error(`AIの回答が想定外の形でした。もう一度お試しください。\n(${jsonText.substring(0, 30)}...)`);
+                    }
+                    
+                    toggleLoading(false);
+                    
+                    newProblem.pattern = currentProblem.pattern;
+                    newProblem.category = currentProblem.category;
+                    newProblem.isAiGenerated = true;
+                    newProblem.id = "ai_" + Date.now();
+                    
+                    feedbackEl.innerHTML = '';
+                    checkBtn.classList.remove('hidden');
+                    nextBtn.classList.add('hidden');
+                    createNewProblemBtn.classList.add('hidden');
+                    
+                    displayProblem(newProblem);
+                } else if (data.error) {
+                    throw new Error(`【APIエラー】: ${data.error.message}`);
+                } else {
+                    throw new Error("Geminiから回答データが届きませんでした。");
+                }
+            } catch (error) {
+                console.error(error);
+                showError(error.message);
+            }
+        }
+
+        checkBtn.addEventListener('click', checkAnswer);
+        nextBtn.addEventListener('click', setupNewRound);
+        resetBtn.addEventListener('click', resetPuzzle);
+        explainGrammarBtn.addEventListener('click', explainGrammar);
+        createNewProblemBtn.addEventListener('click', createNewProblem);
+        
+        closeGrammarModalBtn.addEventListener('click', () => {
+            grammarModal.classList.add('opacity-0', 'pointer-events-none');
+            grammarModalContent.classList.add('scale-95');
+        });
+
+        hintToggle.addEventListener('change', () => {
+            patternDisplay.textContent = hintToggle.checked ? currentProblem.pattern : '？？？';
+        });
+
+        categorySelect.addEventListener('change', () => {
+            setupNewRound();
+            
+            const selectedText = categorySelect.options[categorySelect.selectedIndex].text;
+            feedbackEl.textContent = `▶ ${selectedText} を出題します`;
+            feedbackEl.className = 'text-center text-sm md:text-base font-bold mb-6 min-h-[36px] text-sky-600 fade-in-up';
+            
+            setTimeout(() => {
+                if(feedbackEl.textContent.includes('出題します')) {
+                    feedbackEl.textContent = '';
+                }
+            }, 2500);
+        });
+
+        resetWeaknessBtn.addEventListener('click', () => {
+            if(confirm("記憶している弱点データをリセットしますか？")) {
+                weakPatterns = {};
+                localStorage.removeItem('englishWeakPatterns');
+                alert("リセットしました！");
+            }
+        });
+
+        window.onload = setupNewRound;
+
+    </script>
+</body>
+</html>

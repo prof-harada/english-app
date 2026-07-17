@@ -129,6 +129,10 @@
             <button id="create-new-problem-btn" class="w-full sm:w-auto bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-8 rounded-full shadow-md hidden transition transform hover:-translate-y-1">
                 ✨ AIで新問題を作る
             </button>
+            <!-- 答えを見るボタンを追加 -->
+            <button id="show-answer-btn" class="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-8 rounded-full shadow-md hidden transition transform hover:-translate-y-1">
+                👀 答えを見る
+            </button>
             <button id="reset-btn" class="w-full sm:w-auto bg-slate-400 hover:bg-slate-500 text-white font-bold py-3 px-8 rounded-full shadow-md transition transform hover:-translate-y-1">
                 やり直す
             </button>
@@ -159,7 +163,7 @@
 
     <script>
         // ==========================================
-        // 【重要】完全リセット作戦で作成した新しいGASのURLを貼り付けてください。
+        // 【重要】先生のGASの新しいURLをここに貼り付けてください
         const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby3ZVkco01ky24HPprsWQ7IVYo3M0htb1Io1wg_pvG4RUKGrktgRX5wR9Fh5QjUQY7D/exec";
         // ==========================================
 
@@ -225,6 +229,7 @@
         const resetWeaknessBtn = document.getElementById('reset-weakness-btn');
         const explainGrammarBtn = document.getElementById('explain-grammar-btn');
         const createNewProblemBtn = document.getElementById('create-new-problem-btn');
+        const showAnswerBtn = document.getElementById('show-answer-btn'); // 答えを見るボタンを変数に
         const grammarModal = document.getElementById('grammar-modal');
         const grammarModalBody = document.getElementById('grammar-modal-body');
         const closeGrammarModalBtn = document.getElementById('close-grammar-modal-btn');
@@ -330,6 +335,7 @@
             checkBtn.classList.remove('hidden');
             nextBtn.classList.add('hidden');
             createNewProblemBtn.classList.add('hidden');
+            showAnswerBtn.classList.add('hidden'); // ボタンを隠す
 
             const newProblem = getNextProblem();
             if(!newProblem.isAiGenerated) usedIds.add(newProblem.id);
@@ -344,6 +350,7 @@
             checkBtn.classList.remove('hidden');
             nextBtn.classList.add('hidden');
             createNewProblemBtn.classList.add('hidden');
+            showAnswerBtn.classList.add('hidden'); // ボタンを隠す
             mistakesCount = 0;
         }
 
@@ -368,6 +375,7 @@
                 checkBtn.classList.add('hidden');
                 nextBtn.classList.remove('hidden');
                 createNewProblemBtn.classList.remove('hidden');
+                showAnswerBtn.classList.add('hidden'); // 正解したら答えボタンは隠す
                 
                 speakSentence(currentProblem.sentence);
             } else {
@@ -376,6 +384,7 @@
                 feedbackEl.textContent = 'おしい！もう一度考えてみよう🤔';
                 feedbackEl.className = 'text-center text-xl md:text-2xl font-bold mb-6 min-h-[36px] text-red-500 feedback-incorrect';
                 setTimeout(() => feedbackEl.classList.remove('feedback-incorrect'), 500);
+                showAnswerBtn.classList.remove('hidden'); // 1回間違えたら答えボタンを表示する！
             }
         }
 
@@ -388,12 +397,18 @@
             try {
                 response = await fetch(GAS_WEB_APP_URL, {
                     method: 'POST',
-                    redirect: "follow", 
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'text/plain;charset=utf-8' // CORS対策
+                    },
                     body: JSON.stringify(payload)
                 });
             } catch(e) {
                 throw new Error(`通信エラーです。インターネット接続を確認してください。（詳細: ${e.message}）`);
+            }
+
+            if (!response.ok) {
+                 throw new Error(`サーバーエラーが発生しました。(HTTP status: ${response.status})`);
             }
 
             const text = await response.text();
@@ -403,7 +418,7 @@
                 result = JSON.parse(text);
             } catch(e) {
                 console.error("GASからの生のレスポンス:", text);
-                throw new Error(`GASのデプロイ設定エラーです。「アクセスできるユーザー」を「全員」に設定して再公開してください。`);
+                throw new Error(`データ解析エラーです。GASのデプロイ設定を再度確認してください。`);
             }
             
             if(!result.success) throw new Error(result.error); 
@@ -471,6 +486,10 @@
             
             const prompt = `「${currentProblem.sentence}」と同じ文型「${currentProblem.pattern}」を使って、中学生や高校生がクスッと笑えるような、新しくて面白い英文を一つ作ってください。
             
+            【条件】
+            ・必ず6〜9単語程度の短い文にすること。
+            ・中学生レベルの簡単な英単語だけを使うこと。
+            ・日本語訳はできるだけ自然な日本語にすること。
             【重要】回答は必ず以下のJSON形式のみで出力してください。他の説明や余計な記号は一切書かないでください。
             {
               "sentence": "新しい面白い英文（記号は含めない）",
@@ -521,6 +540,20 @@
         resetBtn.addEventListener('click', resetPuzzle);
         explainGrammarBtn.addEventListener('click', explainGrammar);
         createNewProblemBtn.addEventListener('click', createNewProblem);
+        
+        // 追加：答えを見るボタンを押したときの処理
+        showAnswerBtn.addEventListener('click', () => {
+            const correctWords = currentProblem.sentence.split(' ').map(w => cleanWord(w)).filter(w => w !== "");
+            const correctAnswerCleaned = correctWords.join(' ');
+            
+            feedbackEl.innerHTML = `正解は: <span class="text-sky-600 font-black">${correctAnswerCleaned}</span> 💡`;
+            feedbackEl.className = 'text-center text-lg md:text-xl mb-6 min-h-[36px] fade-in-up';
+            
+            checkBtn.classList.add('hidden');
+            showAnswerBtn.classList.add('hidden');
+            nextBtn.classList.remove('hidden');
+            createNewProblemBtn.classList.remove('hidden');
+        });
         
         closeGrammarModalBtn.addEventListener('click', () => {
             grammarModal.classList.add('opacity-0', 'pointer-events-none');
